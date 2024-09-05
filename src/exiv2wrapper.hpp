@@ -264,7 +264,7 @@ private:
     std::string _filename;
     Exiv2::byte* _data;
     long _size;
-    Exiv2::Image::AutoPtr _image;
+    Exiv2::Image::UniquePtr _image;
     Exiv2::ExifData* _exifData;
     Exiv2::IptcData* _iptcData;
     Exiv2::XmpData* _xmpData;

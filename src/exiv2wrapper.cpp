@@ -45,7 +45,7 @@
 // Custom macros
 #ifdef HAVE_EXIV2_ERROR_CODE
 #define CHECK_METADATA_READ \
-    if (!_dataRead) throw Exiv2::Error(Exiv2::kerErrorMessage, "metadata not read");
+    if (!_dataRead) throw Exiv2::Error(Exiv2::ErrorCode::kerErrorMessage, "metadata not read");
 #else
 #define CHECK_METADATA_READ \
     if (!_dataRead) throw Exiv2::Error(METADATA_NOT_READ);
@@ -61,7 +61,7 @@ void Image::_instantiate_image()
     // If an exception is thrown, it has to be done outside of the
     // Py_{BEGIN,END}_ALLOW_THREADS block.
 #ifdef HAVE_EXIV2_ERROR_CODE
-    Exiv2::Error error = Exiv2::Error(Exiv2::kerSuccess);
+    Exiv2::Error error = Exiv2::Error(Exiv2::ErrorCode::kerSuccess);
 #else
     Exiv2::Error error(0);
 #endif
@@ -90,7 +90,7 @@ void Image::_instantiate_image()
     // Re-acquire the GIL
     Py_END_ALLOW_THREADS
 
-    if (error.code() == 0)
+    if (static_cast<int>(error.code()) == 0)
     {
         assert(_image.get() != 0);
         _dataRead = false;
@@ -147,7 +147,7 @@ void Image::readMetadata()
     // If an exception is thrown, it has to be done outside of the
     // Py_{BEGIN,END}_ALLOW_THREADS block.
 #ifdef HAVE_EXIV2_ERROR_CODE
-    Exiv2::Error error = Exiv2::Error(Exiv2::kerSuccess);
+    Exiv2::Error error = Exiv2::Error(Exiv2::ErrorCode::kerSuccess);
 #else
     Exiv2::Error error(0);
 #endif
@@ -174,7 +174,7 @@ void Image::readMetadata()
     // Re-acquire the GIL
     Py_END_ALLOW_THREADS
 
-    if (error.code() != 0)
+    if (static_cast<int>(error.code()) != 0)
     {
         throw error;
     }
@@ -187,7 +187,7 @@ void Image::writeMetadata()
     // If an exception is thrown, it has to be done outside of the
     // Py_{BEGIN,END}_ALLOW_THREADS block.
 #ifdef HAVE_EXIV2_ERROR_CODE
-    Exiv2::Error error = Exiv2::Error(Exiv2::kerSuccess);
+    Exiv2::Error error = Exiv2::Error(Exiv2::ErrorCode::kerSuccess);
 #else
     Exiv2::Error error(0);
 #endif
@@ -210,7 +210,7 @@ void Image::writeMetadata()
     // Re-acquire the GIL
     Py_END_ALLOW_THREADS
 
-    if (error.code() != 0)
+    if (static_cast<int>(error.code())!= 0)
     {
         throw error;
     }
@@ -257,7 +257,7 @@ const ExifTag Image::getExifTag(std::string key)
     if(_exifData->findKey(exifKey) == _exifData->end())
 #ifdef HAVE_EXIV2_ERROR_CODE
     {
-        throw Exiv2::Error(Exiv2::kerInvalidKey, key);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, key);
     }
 #else
     {
@@ -277,7 +277,7 @@ void Image::deleteExifTag(std::string key)
     if(datum == _exifData->end())
 #ifdef HAVE_EXIV2_ERROR_CODE
     {
-        throw Exiv2::Error(Exiv2::kerInvalidKey, key);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, key);
     }
 #else
     {
@@ -315,7 +315,7 @@ const IptcTag Image::getIptcTag(std::string key)
     if(_iptcData->findKey(iptcKey) == _iptcData->end())
 #ifdef HAVE_EXIV2_ERROR_CODE
     {
-        throw Exiv2::Error(Exiv2::kerInvalidKey, key);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, key);
     }
 #else
     {
@@ -335,7 +335,7 @@ void Image::deleteIptcTag(std::string key)
     if (dataIterator == _iptcData->end())
 #ifdef HAVE_EXIV2_ERROR_CODE
     {
-        throw Exiv2::Error(Exiv2::kerInvalidKey, key);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, key);
     }
 #else
     {
@@ -379,7 +379,7 @@ const XmpTag Image::getXmpTag(std::string key)
     if(_xmpData->findKey(xmpKey) == _xmpData->end())
 #ifdef HAVE_EXIV2_ERROR_CODE
     {
-        throw Exiv2::Error(Exiv2::kerInvalidKey, key);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, key);
     }
 #else
     {
@@ -403,7 +403,7 @@ void Image::deleteXmpTag(std::string key)
     else
 #ifdef HAVE_EXIV2_ERROR_CODE
         {
-            throw Exiv2::Error(Exiv2::kerInvalidKey, key);
+            throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, key);
         }
 #else
         {
@@ -455,7 +455,7 @@ void Image::copyMetadata(Image& other, bool exif, bool iptc, bool xmp) const
     {
 #ifdef HAVE_EXIV2_ERROR_CODE
         {
-            throw Exiv2::Error(Exiv2::kerErrorMessage, "metadata not read");
+            throw Exiv2::Error(Exiv2::ErrorCode::kerErrorMessage, "metadata not read");
         }
 #else
         {
@@ -562,14 +562,16 @@ void Image::writeExifThumbnailToFile(const std::string& path)
 boost::python::list Image::getExifThumbnailData()
 {
     Exiv2::DataBuf buffer = _getExifThumbnail()->copy();
-    // Copy the data buffer in a list.
+
     boost::python::list data;
-    for(unsigned int i = 0; i < buffer.size_; ++i)
+
+    // Copy the data buffer, pData is private in recent exiv2
+    for (auto it = buffer.cbegin(); it != buffer.cend(); ++it)
     {
-        unsigned int datum = buffer.pData_[i];
+        unsigned int datum = *it;
+        
         data.append(datum);
     }
-    return data;
 }
 
 void Image::eraseExifThumbnail()
@@ -682,7 +684,7 @@ void ExifTag::setRawValue(const std::string& value)
     {
         std::string message("Invalid value: ");
         message += value;
-        throw Exiv2::Error(Exiv2::kerInvalidDataset, message);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidDataset, message);
     }
 #else
     {
@@ -702,7 +704,7 @@ void ExifTag::setParentImage(Image& image)
         return;
     }
     _data = data;
-    Exiv2::Value::AutoPtr value = _datum->getValue();
+    Exiv2::Value::UniquePtr value = _datum->getValue();
     delete _datum;
     _datum = &(*_data)[_key.key()];
     _datum->setValue(value.get());
@@ -804,7 +806,7 @@ IptcTag::IptcTag(const std::string& key, Exiv2::IptcData* data): _key(key)
                 {
                     std::string mssg("Tag not repeatable: ");
                     mssg += key;
-                    throw Exiv2::Error(Exiv2::kerErrorMessage, mssg);
+                    throw Exiv2::Error(Exiv2::ErrorCode::kerErrorMessage, mssg);
                 }
 #else
                 {
@@ -832,7 +834,7 @@ void IptcTag::setRawValues(const boost::python::list& values)
         // one value.
 #ifdef HAVE_EXIV2_ERROR_CODE
         {
-            throw Exiv2::Error(Exiv2::kerInvalidDataset, "Tag not repeatable");
+            throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidDataset, "Tag not repeatable");
         }
 #else
         {
@@ -858,7 +860,7 @@ void IptcTag::setRawValues(const boost::python::list& values)
                 mssg += value;
                 // there's no invalid value error in libexiv2, so we use 
                 // kerInvalidDataset wich raise a Python ValueError
-                throw Exiv2::Error(Exiv2::kerInvalidDataset, mssg);
+                throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidDataset, mssg);
             }
 #else
             {
@@ -882,7 +884,7 @@ void IptcTag::setRawValues(const boost::python::list& values)
             {
                 std::string mssg("Invalid value: ");
                 mssg += value;
-                throw Exiv2::Error(Exiv2::kerErrorMessage, mssg);
+                throw Exiv2::Error(Exiv2::ErrorCode::kerErrorMessage, mssg);
             }
 #else
             {
@@ -895,7 +897,7 @@ void IptcTag::setRawValues(const boost::python::list& values)
             {
                 std::string mssg("Tag not repeatable: ");
                 mssg += _key.key();
-                throw Exiv2::Error(Exiv2::kerErrorMessage, mssg);
+                throw Exiv2::Error(Exiv2::ErrorCode::kerErrorMessage, mssg);
             }
 #else
             {
@@ -1083,7 +1085,7 @@ void XmpTag::setParentImage(Image& image)
         // anything (see https://bugs.launchpad.net/pyexiv2/+bug/622739).
         return;
     }
-    Exiv2::Value::AutoPtr value = _datum->getValue();
+    Exiv2::Value::UniquePtr value = _datum->getValue();
     delete _datum;
     _from_datum = true;
     _datum = &(*image.getXmpData())[_key.key()];
@@ -1213,7 +1215,7 @@ void translateExiv2Error(Exiv2::Error const& error)
     // The type of the Python exception depends on the error code
     // Warning: this piece of code should be updated in case the error codes
     // defined by Exiv2 (file 'src/error.cpp') are changed
-    switch (error.code())
+    switch (static_cast<int>(error.code()))
     {
         case 1:
             // kerErrorMessage Unidentified error
@@ -1890,7 +1892,7 @@ void registerXmpNs(const std::string& name, const std::string& prefix)
     {
         std::string mssg("Namespace already exists: ");
         mssg += prefix;
-        throw Exiv2::Error(Exiv2::kerInvalidKey, mssg);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, mssg);
     }
 #else
     {
@@ -1919,7 +1921,7 @@ void unregisterXmpNs(const std::string& name)
         {
             std::string mssg("Can't unregister builtin namespace: ");
             mssg += name;
-            throw Exiv2::Error(Exiv2::kerInvalidKey, mssg);
+            throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, mssg);
         }
 #else
         {
@@ -1932,7 +1934,7 @@ void unregisterXmpNs(const std::string& name)
     {
         std::string mssg("Namespace does not exists: ");
         mssg += name;
-        throw Exiv2::Error(Exiv2::kerInvalidKey, mssg);
+        throw Exiv2::Error(Exiv2::ErrorCode::kerInvalidKey, mssg);
     }
 #else
     {
